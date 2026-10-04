@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 
-from maskhub.console.handlers import audit, catalog, policy, rule, source, system
+from maskhub.console.handlers import audit, batch, catalog, policy, rule, source, system
 from maskhub.console.http import Request, Response
 from maskhub.console.router import Router
 
@@ -31,10 +31,23 @@ def build_router(runtime) -> Router:
 
     router.get("/policies", bind(policy.list_policies, runtime))
     router.post("/policies", bind(policy.create_policy, runtime))
-    router.post("/policy/activate", bind(policy.activate_policy, runtime))
-    router.post("/policy/retire", bind(policy.retire_policy, runtime))
+    router.post("/policy/draft", bind(policy.update_policy, runtime))
+    router.get("/policy/versions", bind(policy.list_versions, runtime))
+    router.post("/policy/version", bind(policy.get_version, runtime))
+    router.post("/policy/preview", bind(policy.preview_publish, runtime))
+    router.post("/policy/publish", bind(policy.publish_policy, runtime))
+    router.post("/policy/rollback", bind(policy.rollback_policy, runtime))
+    router.get("/policy/releases", bind(policy.list_releases, runtime))
+    router.get("/policy/release", bind(policy.get_release, runtime))
+    router.get("/policy/serving", bind(policy.serving, runtime))
+    router.get("/policy/history", bind(policy.scope_history, runtime))
+    router.post("/policy/governing-at", bind(policy.governing_at, runtime))
     router.post("/policy/coverage", bind(policy.policy_coverage, runtime))
     router.get("/policy/gaps", bind(policy.coverage_gap, runtime))
+
+    router.post("/batches", bind(batch.record_batch, runtime))
+    router.get("/batch", bind(batch.get_batch, runtime))
+    router.get("/batches", bind(batch.list_batches, runtime))
 
     router.get("/audit", bind(audit.list_audit, runtime))
     router.get("/audit/summary", bind(audit.audit_summary, runtime))

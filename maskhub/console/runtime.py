@@ -23,11 +23,13 @@ class Runtime:
 
 
 def build_runtime(store: RecordStore) -> Runtime:
+    rules = RuleRegistry(store)
+    datasets = DatasetRegistry(store)
     return Runtime(
         store=store,
         journal=Journal(store),
         sources=SourceRegistry(store),
-        datasets=DatasetRegistry(store),
-        rules=RuleRegistry(store),
-        policies=PolicyRegistry(store),
+        datasets=datasets,
+        rules=rules,
+        policies=PolicyRegistry(store, rules=rules, datasets=datasets),
     )

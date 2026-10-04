@@ -21,7 +21,9 @@ def status(runtime, request: Request) -> Response:
             "datasets": count_with_prefix(runtime.store, "dataset."),
             "rules": count_with_prefix(runtime.store, "rule."),
             "policies": count_with_prefix(runtime.store, "policy."),
-            "serving_policies": [policy.identifier for policy in runtime.policies.serving()],
+            "serving_policies": sorted(
+                {binding.ref for binding in runtime.policies.serving()}
+            ),
             "audit_actions": runtime.journal.summary(),
             "sensitive_surface": runtime.datasets.sensitive_surface(),
         },

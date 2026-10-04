@@ -58,6 +58,18 @@ class RecordStore:
         with self._lock:
             self._write(name, payload)
 
+    def put_many_json(self, values: dict[str, Any]) -> None:
+        """Write several JSON documents while holding the store lock once.
+
+        Callers that must read and write several keys atomically should wrap
+        their reads and this call in a single ``transaction()`` block; the lock
+        is reentrant.
+        """
+        encoded = [(validate_key(key), encode(value)) for key, value in values.items()]
+        with self._lock:
+            for name, payload in encoded:
+                self._write(name, payload)
+
     def get_json(self, key: str) -> Any | None:
         raw = self.get(key)
         if raw is None:
