@@ -1,4 +1,4 @@
-"""A masking policy binding datasets to rules."""
+"""A masking policy draft binding datasets to rules."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from enum import Enum
 
 class PolicyState(str, Enum):
     DRAFT = "draft"
-    ACTIVE = "active"
     RETIRED = "retired"
 
-    @property
-    def is_serving(self) -> bool:
-        return self is PolicyState.ACTIVE
+
+# Policies stored before versioning was introduced used "active" for the
+# serving state; serving is now tracked by assignments, so they load as drafts.
+LEGACY_STATES = {"active": PolicyState.DRAFT.value}
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,7 @@ class Policy:
             return None
         if not isinstance(datasets, list) or not isinstance(rules, list):
             return None
+        state = LEGACY_STATES.get(state, state)
         try:
             return cls(
                 identifier=identifier,

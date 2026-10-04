@@ -1,12 +1,14 @@
-"""Static check that an active policy covers every declared sensitive field."""
+"""Static check that a rule set covers every declared sensitive field."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import Sequence
 
-from maskhub.catalog.dataset import DatasetRegistry
+from maskhub.catalog.dataset import Dataset, DatasetRegistry
 from maskhub.errors import NotFound
 from maskhub.policy.registry import PolicyRegistry
+from maskhub.policy.versions import VersionRegistry
 from maskhub.rule.registry import RuleRegistry
 
 
@@ -28,35 +30,52 @@ class CoverageReport:
         return payload
 
 
-def check_coverage(
-    policy_id: str,
-    dataset_id: str,
-    policies: PolicyRegistry,
-    datasets: DatasetRegistry,
+def evaluate_coverage(
+    policy_ref: str,
+    rule_ids: Sequence[str],
+    dataset: Dataset,
     rules: RuleRegistry,
 ) -> CoverageReport:
-    policy = policies.get(policy_id)
-    if not policy.covers(dataset_id):
-        raise NotFound(f"policy {policy_id} does not target dataset {dataset_id}")
-    dataset = datasets.get(dataset_id)
-
     sensitive = [item.name for item in dataset.masked_fields()]
     covered: list[str] = []
     uncovered: list[str] = []
     used: set[str] = set()
     for name in sensitive:
         hit = False
-        for rule_id in policy.rules:
+        for rule_id in rule_ids:
             rule = rules.get(rule_id)
             if rule.matches(name):
                 hit = True
                 used.add(rule_id)
         (covered if hit else uncovered).append(name)
-    unmatched = tuple(sorted(set(policy.rules) - used))
+    unmatched = tuple(sorted(set(rule_ids) - used))
     return CoverageReport(
-        policy=policy.identifier,
+        policy=policy_ref,
         dataset=dataset.identifier,
         covered=tuple(covered),
         uncovered=tuple(uncovered),
         unmatched_rules=unmatched,
     )
+
+
+def check_coverage(
+    policy_id: str,
+    dataset_id: str,
+    policies: PolicyRegistry,
+    datasets: DatasetRegistry,
+    rules: RuleRegistry,
+    versions: VersionRegistry | None = None,
+    version: int | None = None,
+) -> CoverageReport:
+    if version is None:
+        policy = policies.get(policy_id)
+        rule_ids, scope, ref = policy.rules, policy.datasets, policy.identifier
+    else:
+        if versions is None:
+            raise NotFound(f"unknown version {policy_id}@{version}")
+        snapshot = versions.get_version(policy_id, version)
+        rule_ids, scope, ref = snapshot.rules, snapshot.datasets, snapshot.ref
+    if dataset_id not in scope:
+        raise NotFound(f"policy {ref} does not target dataset {dataset_id}")
+    dataset = datasets.get(dataset_id)
+    return evaluate_coverage(ref, rule_ids, dataset, rules)

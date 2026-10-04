@@ -1,4 +1,4 @@
-"""Policy storage with a single-serving-state rule."""
+"""Policy draft storage; serving state lives in the version registry."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ class PolicyRegistry:
 
     def save(self, policy: Policy) -> Policy:
         existing = self.find(policy.identifier)
-        if existing is not None and existing.state_enum is PolicyState.ACTIVE:
-            raise Conflict(f"policy {policy.identifier} is active and cannot be edited")
+        if existing is not None and existing.state_enum is PolicyState.RETIRED:
+            raise Conflict(f"policy {policy.identifier} is retired and cannot be edited")
         self._store.put_json(policy_key(policy.identifier), policy.as_dict())
         return policy
 
@@ -32,21 +32,6 @@ class PolicyRegistry:
         if policy is None:
             raise NotFound(f"unknown policy {identifier}")
         return policy
-
-    def activate(self, identifier: str) -> Policy:
-        policy = self.get(identifier)
-        for other in self.all():
-            if other.identifier == identifier:
-                continue
-            if other.state_enum is not PolicyState.ACTIVE:
-                continue
-            if set(other.datasets) & set(policy.datasets):
-                raise Conflict(
-                    f"policy {other.identifier} already serves {sorted(set(other.datasets) & set(policy.datasets))}"
-                )
-        activated = policy.with_state(PolicyState.ACTIVE)
-        self._store.put_json(policy_key(identifier), activated.as_dict())
-        return activated
 
     def retire(self, identifier: str) -> Policy:
         policy = self.get(identifier)
@@ -61,6 +46,3 @@ class PolicyRegistry:
 
     def all(self) -> list[Policy]:
         return [self.get(identifier) for identifier in self.identifiers()]
-
-    def serving(self) -> list[Policy]:
-        return [policy for policy in self.all() if policy.state_enum.is_serving]

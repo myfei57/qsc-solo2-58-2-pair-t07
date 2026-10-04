@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from maskhub.console.http import Request, Response
 from maskhub.console.validation import optional_text, require_text
-from maskhub.errors import InvalidRequest
+from maskhub.errors import Conflict, InvalidRequest
 from maskhub.rule.rule import Rule
 
 
@@ -32,6 +32,10 @@ def create_rule(runtime, request: Request) -> Response:
 def remove_rule(runtime, request: Request) -> Response:
     payload = request.json_object()
     identifier = require_text(payload, "identifier")
+    for assignment in runtime.versions.assignments():
+        serving = runtime.versions.get_version(assignment.policy, assignment.version)
+        if identifier in serving.rules:
+            raise Conflict(f"rule {identifier} is used by serving {serving.ref}")
     runtime.rules.remove(identifier)
     runtime.journal.append("rule.remove", identifier, optional_text(payload, "reason"))
     return Response.json(200, {"removed": identifier})
